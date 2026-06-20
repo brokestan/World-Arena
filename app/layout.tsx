@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { WalletProviderClient } from "@/components/WalletProviderClient";
+import { WalletProviderLoader } from "@/components/WalletProviderLoader";
 import { HeaderLoader } from "@/components/HeaderLoader";
 
 export const metadata: Metadata = {
@@ -16,10 +16,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <WalletProviderClient>
+        <WalletProviderLoader>
           <HeaderLoader />
           {children}
-        </WalletProviderClient>
+        </WalletProviderLoader>
       </body>
     </html>
   );
