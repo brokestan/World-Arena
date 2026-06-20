@@ -1,6 +1,7 @@
 "use client";
 
-import { useCurrentAccount, useDAppKit } from "@mysten/dapp-kit-react";
+import { useCurrentAccount, useDisconnectWallet } from "@mysten/dapp-kit-react";
+import { ConnectButton } from "@mysten/dapp-kit-react/ui";
 
 function truncateAddress(address: string): string {
   if (address.length <= 10) return address;
@@ -9,10 +10,10 @@ function truncateAddress(address: string): string {
 
 // This component reads live wallet state via window/Wallet Standard,
 // so it must never be server-rendered. It is dynamically imported with
-// ssr:false inside app/layout.tsx.
+// ssr:false via components/HeaderLoader.tsx.
 export function Header() {
   const account = useCurrentAccount();
-  const dAppKit = useDAppKit();
+  const { mutate: disconnect } = useDisconnectWallet();
 
   return (
     <header className="flex items-center justify-between border-b border-white/10 px-6 py-4">
@@ -26,20 +27,15 @@ export function Header() {
             {truncateAddress(account.address)}
           </span>
           <button
-            onClick={() => dAppKit.disconnectWallet()}
+            onClick={() => disconnect()}
             className="rounded-md bg-white/5 px-3 py-1.5 text-sm hover:bg-white/10 transition"
           >
             Disconnect
           </button>
         </div>
       ) : (
-        <button
-          onClick={() => dAppKit.openConnectModal()}
-          className="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-black hover:bg-white/90 transition"
-        >
-          Connect Wallet
-        </button>
+        <ConnectButton />
       )}
     </header>
   );
-      }
+}
