@@ -6,9 +6,29 @@ export type Namespace = (typeof NAMESPACE)[keyof typeof NAMESPACE];
 
 export type Account = {
   walletAddress: string;
-  memwalAccountId: string | null;
   displayName: string | null;
   createdAt: string;
+};
+
+// Batch 2. The short-lived, server-signed session minted after a
+// wallet proves ownership via an off-chain message signature. Carried
+// as a signed, httpOnly cookie — this type describes its decoded
+// payload, not the cookie itself. See lib/auth/session.ts.
+export type Session = {
+  walletAddress: string;
+  issuedAt: string; // ISO timestamp
+  expiresAt: string; // ISO timestamp
+};
+
+// Batch 2. Request body for POST /api/auth/verify. `timestamp` must
+// match the timestamp embedded in the message that was actually
+// signed — the server reconstructs the expected message itself from
+// (walletAddress, timestamp) rather than trusting client-supplied
+// message text. See lib/auth/wallet-signature.ts.
+export type WalletAuthRequest = {
+  walletAddress: string;
+  signature: string;
+  timestamp: string; // ISO timestamp
 };
 
 export type MatchCache = {
