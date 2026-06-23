@@ -1,7 +1,7 @@
 import type { ChatMessage, ActionChip } from '@/lib/types'
 import { AGENT } from '@/lib/types'
 
-// ─── Personal Room — personal_agent ───────────────────────────────────────────
+// ─── Personal Room ────────────────────────────────────────────────────────────
 
 const personalChips: ActionChip[] = [
   {
@@ -93,7 +93,7 @@ export const PERSONAL_MESSAGES: ChatMessage[] = [
   },
 ]
 
-// ─── World Arena — the_historian ─────────────────────────────────────────────
+// ─── World Arena ──────────────────────────────────────────────────────────────
 
 const arenaChips: ActionChip[] = [
   {
@@ -133,7 +133,7 @@ export const ARENA_MESSAGES: ChatMessage[] = [
     agentId: AGENT.HISTORIAN,
     content: {
       type: 'text',
-      text: "History does not favour, Farrukh — history *records*. And what it records is this: every nation that lifts the trophy carries a heavier burden into the next cycle. Argentina arrives as champions and champions are measured differently. France, meanwhile, has a habit of arriving quietly and leaving devastatingly. The last three tournaments have rewarded the understated over the celebrated. The Arena leans toward Les Bleus. But only just.",
+      text: "History does not favour, Farrukh — history records. And what it records is this: every nation that lifts the trophy carries a heavier burden into the next cycle. The last three tournaments have rewarded the understated over the celebrated. The Arena leans toward Les Bleus. But only just.",
     },
     timestamp: new Date(Date.now() - 13 * 60 * 1000).toISOString(),
   },
@@ -151,9 +151,15 @@ export const ARENA_MESSAGES: ChatMessage[] = [
     id: 'a-4',
     role: 'agent',
     agentId: AGENT.HISTORIAN,
+    // Demo: the Historian replies directly to María's point
+    replyTo: {
+      messageId: 'a-3',
+      senderDisplayName: 'María',
+      contentPreview: "Spain has won this exact scenario — defending underdog — three times in modern history. Nobody's talking about Spain and that's exactly why they'll win it.",
+    },
     content: {
       type: 'text',
-      text: "María, you have stumbled onto something the analysts keep missing. Spain does not announce itself — it *arrives*. The tiki-taka era ended, yet the philosophy calcified into the academies, the culture, the DNA of the game there. The talent pipeline has not dried up; it has merely been forgotten by a media that requires spectacle. History rewards the disciplined and the unseen. I would not bet against them. And I would not bet against you, either.",
+      text: "María, you have stumbled onto something the analysts keep missing. Spain does not announce itself — it arrives. The talent pipeline has not dried up; it has merely been forgotten by a media that requires spectacle. History rewards the disciplined and the unseen.",
     },
     actions: arenaChips,
     timestamp: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
