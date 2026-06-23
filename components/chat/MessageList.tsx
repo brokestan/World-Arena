@@ -11,7 +11,9 @@ interface MessageListProps {
   messages: ChatMessage[]
   agentId: AgentId
   isTyping?: boolean
+  swipeable?: boolean
   onChipSelect?: (message: ChatMessage, promptText: string) => void
+  onReply?: (message: ChatMessage) => void
   className?: string
 }
 
@@ -19,17 +21,17 @@ export function MessageList({
   messages,
   agentId,
   isTyping = false,
+  swipeable = false,
   onChipSelect,
+  onReply,
   className,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll whenever messages update or typing state changes.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length, isTyping])
 
-  // Only the most recent agent message shows action chips.
   const latestAgentId = [...messages]
     .reverse()
     .find((m) => m.role === 'agent')?.id
@@ -37,19 +39,10 @@ export function MessageList({
   return (
     <div
       className={cn(
-        'flex flex-1 flex-col overflow-y-auto py-3',
-        // min-h-0 is critical: without it, flex children ignore the
-        // parent's height constraint and the list won't scroll.
-        'min-h-0',
+        'flex flex-1 flex-col overflow-y-auto py-3 min-h-0',
         className,
       )}
     >
-      {/*
-        initial={false}: messages that already exist when this component
-        mounts don't play entrance animations. Only genuinely new messages
-        (added after mount) animate in — avoiding a jarring "replay" of
-        the whole conversation on first render.
-      */}
       <AnimatePresence initial={false}>
         {messages.map((message) => (
           <motion.div
@@ -62,14 +55,16 @@ export function MessageList({
             <MessageBubble
               message={message}
               isLatest={message.id === latestAgentId}
+              swipeable={swipeable}
               onChipSelect={onChipSelect}
+              onReply={onReply}
             />
           </motion.div>
         ))}
 
         {isTyping && (
           <motion.div
-            key="typing-indicator"
+            key="typing"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
@@ -80,8 +75,7 @@ export function MessageList({
         )}
       </AnimatePresence>
 
-      {/* Invisible scroll anchor — always at the bottom of the list */}
       <div ref={bottomRef} className="h-px flex-shrink-0" />
     </div>
   )
-            }
+}
