@@ -16,7 +16,7 @@ export type Account = {
 // payload, not the cookie itself. See lib/auth/session.ts.
 export type Session = {
   walletAddress: string;
-  issuedAt: string; // ISO timestamp
+  issuedAt: string;  // ISO timestamp
   expiresAt: string; // ISO timestamp
 };
 
@@ -66,3 +66,69 @@ export const AGENT = {
   HISTORIAN: "the_historian",
 } as const;
 export type AgentId = (typeof AGENT)[keyof typeof AGENT];
+
+// ─── Batch 3 additions ───────────────────────────────────────────────────────
+// Agent accent colors — used via inline `style` props only, never in
+// Tailwind config, because they are dynamic per-agent values.
+
+export const AGENT_CONFIG = {
+  personal_agent: {
+    name: 'Your agent',
+    color: '#7C3AED',
+    colorLight: '#818CF8',
+    colorGlow: 'rgba(124, 58, 237, 0.25)',
+    bgGlass: 'rgba(124, 58, 237, 0.08)',
+  },
+  the_historian: {
+    name: 'The Historian',
+    color: '#B45309',
+    colorLight: '#FCD34D',
+    colorGlow: 'rgba(180, 83, 9, 0.25)',
+    bgGlass: 'rgba(180, 83, 9, 0.08)',
+  },
+} as const satisfies Record<AgentId, {
+  name: string
+  color: string
+  colorLight: string
+  colorGlow: string
+  bgGlass: string
+}>
+
+export type ActionChipVariant = 'positive' | 'negative' | 'roast' | 'change' | 'info'
+
+export type ActionChip = {
+  id: string
+  label: string
+  variant: ActionChipVariant
+  promptText: string
+}
+
+export type PredictionCardData = {
+  matchId: string
+  homeTeam: string
+  awayTeam: string
+  homeFlag: string   // emoji e.g. '🇧🇷'
+  awayFlag: string
+  kickoffAt: string  // ISO string
+  roundLabel: string
+  predictedWinner: string // team name or 'draw'
+  confidenceScore: number // 1-10, agent-derived
+  status: 'pending' | 'locked' | 'correct' | 'wrong'
+  actualResult?: string  // e.g. 'Brazil 2-1 Senegal'
+}
+
+export type MessageContent =
+  | { type: 'text'; text: string }
+  | { type: 'prediction'; prediction: PredictionCardData }
+
+export type ChatMessage = {
+  id: string
+  role: 'user' | 'agent'
+  agentId?: AgentId
+  // Arena only: display name shown alongside the message
+  senderDisplayName?: string
+  content: MessageContent
+  timestamp: string
+  // Action chips only on agent messages, only on the latest message
+  actions?: ActionChip[]
+  }
