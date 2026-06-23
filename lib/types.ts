@@ -10,25 +10,16 @@ export type Account = {
   createdAt: string;
 };
 
-// Batch 2. The short-lived, server-signed session minted after a
-// wallet proves ownership via an off-chain message signature. Carried
-// as a signed, httpOnly cookie — this type describes its decoded
-// payload, not the cookie itself. See lib/auth/session.ts.
 export type Session = {
   walletAddress: string;
-  issuedAt: string;  // ISO timestamp
-  expiresAt: string; // ISO timestamp
+  issuedAt: string;
+  expiresAt: string;
 };
 
-// Batch 2. Request body for POST /api/auth/verify. `timestamp` must
-// match the timestamp embedded in the message that was actually
-// signed — the server reconstructs the expected message itself from
-// (walletAddress, timestamp) rather than trusting client-supplied
-// message text. See lib/auth/wallet-signature.ts.
 export type WalletAuthRequest = {
   walletAddress: string;
   signature: string;
-  timestamp: string; // ISO timestamp
+  timestamp: string;
 };
 
 export type MatchCache = {
@@ -46,18 +37,15 @@ export type MatchCache = {
   roundLabel: string | null;
 };
 
-// The shape every PREDICTION memory string parses into.
-// This object is never stored in Supabase — it lives only inside
-// Walrus Memory `private` and `shared` namespaces as a formatted string.
 export type PredictionMemory = {
   matchId: string;
   homeTeam: string;
   awayTeam: string;
-  predictedWinner: string; // team name or "draw"
+  predictedWinner: string;
   predictedScoreHome: number | null;
   predictedScoreAway: number | null;
   predictedPenaltyWinner: string | null;
-  confidenceScore: number; // 1-10, agent-derived, never user-entered
+  confidenceScore: number;
   reasoningSummary: string;
 };
 
@@ -67,9 +55,7 @@ export const AGENT = {
 } as const;
 export type AgentId = (typeof AGENT)[keyof typeof AGENT];
 
-// ─── Batch 3 additions ───────────────────────────────────────────────────────
-// Agent accent colors — used via inline `style` props only, never in
-// Tailwind config, because they are dynamic per-agent values.
+// ─── Batch 3 ─────────────────────────────────────────────────────────────────
 
 export const AGENT_CONFIG = {
   personal_agent: {
@@ -78,6 +64,9 @@ export const AGENT_CONFIG = {
     colorLight: '#818CF8',
     colorGlow: 'rgba(124, 58, 237, 0.25)',
     bgGlass: 'rgba(124, 58, 237, 0.08)',
+    // Place your image at /public/agents/personal.jpg then set this path.
+    // Leave empty string to show the gradient + initial fallback instead.
+    avatarUrl: '',
   },
   the_historian: {
     name: 'The Historian',
@@ -85,6 +74,8 @@ export const AGENT_CONFIG = {
     colorLight: '#FCD34D',
     colorGlow: 'rgba(180, 83, 9, 0.25)',
     bgGlass: 'rgba(180, 83, 9, 0.08)',
+    // Place your image at /public/agents/historian.jpg then set this path.
+    avatarUrl: '',
   },
 } as const satisfies Record<AgentId, {
   name: string
@@ -92,6 +83,7 @@ export const AGENT_CONFIG = {
   colorLight: string
   colorGlow: string
   bgGlass: string
+  avatarUrl: string
 }>
 
 export type ActionChipVariant = 'positive' | 'negative' | 'roast' | 'change' | 'info'
@@ -107,14 +99,25 @@ export type PredictionCardData = {
   matchId: string
   homeTeam: string
   awayTeam: string
-  homeFlag: string   // emoji e.g. '🇧🇷'
+  homeFlag: string
   awayFlag: string
-  kickoffAt: string  // ISO string
+  kickoffAt: string
   roundLabel: string
-  predictedWinner: string // team name or 'draw'
-  confidenceScore: number // 1-10, agent-derived
+  predictedWinner: string
+  confidenceScore: number
   status: 'pending' | 'locked' | 'correct' | 'wrong'
-  actualResult?: string  // e.g. 'Brazil 2-1 Senegal'
+  actualResult?: string
+}
+
+// Quoted message context — set when a message was sent as a reply to another.
+export type ReplyReference = {
+  messageId: string
+  // Display name of the person being replied to
+  senderDisplayName: string
+  // agentId if replying to an agent message (used for accent color)
+  agentId?: AgentId
+  // Truncated preview of the replied-to content
+  contentPreview: string
 }
 
 export type MessageContent =
@@ -125,10 +128,10 @@ export type ChatMessage = {
   id: string
   role: 'user' | 'agent'
   agentId?: AgentId
-  // Arena only: display name shown alongside the message
   senderDisplayName?: string
   content: MessageContent
   timestamp: string
-  // Action chips only on agent messages, only on the latest message
   actions?: ActionChip[]
+  // Set when the message was sent as a reply to another message
+  replyTo?: ReplyReference
   }
