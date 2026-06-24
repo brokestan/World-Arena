@@ -10,6 +10,8 @@ import { buildPersonalAgentPrompt } from '@/lib/ai/prompts'
 import { emitSSE } from '@/lib/ai/stream'
 import { createClient } from '@supabase/supabase-js'
 import type { ActionChip } from '@/lib/types'
+import { runPersonalExtraction } from '@/lib/ai/extraction'
+
 
 type RequestBody = {
   messages: { role: 'user' | 'model'; text: string }[]
@@ -130,8 +132,11 @@ export async function POST(req: NextRequest) {
       // 8. Signal completion — client updates UI immediately
       emitSSE(controller, { done: true, actions: chips })
 
-      // 9. Phase B adds: await runPersonalExtraction(walletAddress, lastUserMessage, fullResponse, memwal)
-      //    after lib/ai/extraction.ts is built. Route compiles and works fully without it.
+      // 9. Fire extraction in background — client UI already unlocked by done:true above.
+      //    Fire-and-forget: never let extraction errors surface to the user.
+      runPersonalExtraction(walletAddress, lastUserMessage, fullResponse).catch(err =>
+        console.error('[personal] Extraction failed (non-fatal):', err),
+      )
 
       controller.close()
     },
