@@ -1,50 +1,20 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { ChatShell } from '@/components/chat/ChatShell'
 import { MessageList } from '@/components/chat/MessageList'
 import { ChatInput } from '@/components/chat/ChatInput'
-import { ARENA_MESSAGES } from '@/components/chat/mock-data'
 import { AGENT, AGENT_CONFIG } from '@/lib/types'
-import type { ChatMessage, ReplyReference } from '@/lib/types'
-
-// ─── Contextual historian responses ──────────────────────────────────────────
-
-const GENERIC_REPLIES = [
-  "History rewards the brave and the honest — and what you have just said is both. The record will note it.",
-  "The archives suggest something similar was said before the 2010 tournament, by a man who was spectacularly wrong. That does not mean you are wrong. It means the stakes are high.",
-  "Bold. And historically speaking, boldness at this stage of a tournament cycle has a stronger track record than the pundits would have you believe.",
-  "The Historian neither agrees nor disagrees publicly. But privately? There is something in your read. Do not let the Arena dismiss it.",
-]
-
-function generateHistorianReply(
-  userText: string,
-  reply: ReplyReference | null,
-): string {
-  // When the user swipes-to-reply on a message and @historians with context
-  if (reply) {
-    const who = reply.senderDisplayName
-    const excerpt = reply.contentPreview.slice(0, 55)
-    const pool = [
-      `You have brought ${who}'s point — "${excerpt}…" — before me. An interesting choice. History has a pattern of vindicating exactly the people who get talked over in real-time debates.`,
-      `I see you have quoted ${who}: "${excerpt.slice(0, 40)}…". Let the record show that The Historian has read it. What ${who} said is neither wholly right nor wholly wrong — and that, historically, is the most dangerous kind of argument.`,
-      `Summoned with ${who}'s words as context. Good. The Historian prefers precision over noise. Here is what the archives say about that claim specifically: the evidence is more complicated than anyone in this Arena is letting on.`,
-    ]
-    return pool[Math.floor(Math.random() * pool.length)]
-  }
-
-  return GENERIC_REPLIES[Math.floor(Math.random() * GENERIC_REPLIES.length)]
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
+import type { ActionChip, ChatMessage, ReplyReference } from '@/lib/types'
 
 export function ArenaChatClient() {
-  const [messages, setMessages] = useState<ChatMessage[]>(ARENA_MESSAGES)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input,    setInput]    = useState('')
-  const [isTyping, setIsTyping] = useState(false)
+  const [isBusy,   setIsBusy]  = useState(false)
   const [replyRef, setReplyRef] = useState<ReplyReference | null>(null)
+  const streamingIdRef          = useRef<string | null>(null)
 
-  // Swiping a message sets it as the reply context
+  // ── Swipe-to-reply ─────────────────────────────────────────────────
   const handleReply = useCallback((message: ChatMessage) => {
     const senderDisplayName =
       message.role === 'agent' && message.agentId
@@ -52,9 +22,7 @@ export function ArenaChatClient() {
         : (message.senderDisplayName ?? 'Unknown')
 
     const contentPreview =
-      message.content.type === 'text'
-        ? message.content.text
-        : 'Prediction card'
+      message.content.type === 'text' ? message.content.text : 'Prediction card'
 
     setReplyRef({
       messageId: message.id,
@@ -66,11 +34,12 @@ export function ArenaChatClient() {
 
   const handleClearReply = useCallback(() => setReplyRef(null), [])
 
-  const handleSend = useCallback(() => {
+  // ── Send ────────────────────────────────────────────────────────────
+  const handleSend = useCallback(async () => {
     const text = input.trim()
-    if (!text || isTyping) return
+    if (!text || isBusy) return
 
-    const mentionsHistorian = /\@historian/i.test(text)
+    const mentionsHistorian = /@historian/i.test(text)
 
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
@@ -81,51 +50,129 @@ export function ArenaChatClient() {
       replyTo: replyRef ?? undefined,
     }
 
-    setMessages((prev) => [...prev, userMsg])
+    setMessages(prev => [...prev, userMsg])
     setInput('')
     setReplyRef(null)
 
-    // Historian only responds when explicitly @mentioned.
-    // Regular arena chatter (no @mention) sits in the thread without response —
-    // real multi-user messages would come via Supabase Realtime in Batch 4.
-    if (mentionsHistorian) {
-      setIsTyping(true)
-      const delay = 1600 + Math.random() * 900
-      setTimeout(() => {
-        const agentMsg: ChatMessage = {
-          id: `a-${Date.now()}`,
-          role: 'agent',
-          agentId: AGENT.HISTORIAN,
-          content: {
-            type: 'text',
-            text: generateHistorianReply(text, replyRef),
-          },
-          // Historian's reply references the user's message context too
-          replyTo: replyRef
-            ? undefined  // context already embedded in the response text
-            : undefined,
-          timestamp: new Date().toISOString(),
-        }
-        setMessages((prev) => [...prev, agentMsg])
-        setIsTyping(false)
-      }, delay)
-    }
-  }, [input, isTyping, replyRef])
+    // Non-@historian messages sit in the thread — future Supabase Realtime
+    // will broadcast these to other connected arena participants.
+    if (!mentionsHistorian) return
 
-  const handleChipSelect = useCallback(
-    (_msg: ChatMessage, promptText: string) => {
-      setInput(promptText)
-    },
-    [],
-  )
+    // ── Build conversation history (user ↔ Historian exchanges only) ──
+    const history = [...messages, userMsg]
+      .filter(m =>
+        m.content.type === 'text' &&
+        ((m.role === 'user' && m.senderDisplayName === 'You') ||
+         (m.role === 'agent' && m.agentId === AGENT.HISTORIAN))
+      )
+      .slice(-10)
+      .map(m => ({
+        role: (m.role === 'agent' ? 'model' : 'user') as 'user' | 'model',
+        text: (m.content as { type: 'text'; text: string }).text,
+      }))
+
+    // ── Add empty streaming Historian bubble ───────────────────────────
+    const agentId = `a-${Date.now()}`
+    const agentMsg: ChatMessage = {
+      id: agentId,
+      role: 'agent',
+      agentId: AGENT.HISTORIAN,
+      content: { type: 'text', text: '' },
+      timestamp: new Date().toISOString(),
+      isStreaming: true,
+    }
+
+    streamingIdRef.current = agentId
+    setMessages(prev => [...prev, agentMsg])
+    setIsBusy(true)
+
+    // ── Open SSE stream ────────────────────────────────────────────────
+    try {
+      const response = await fetch('/api/agent/historian', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: history }),
+      })
+
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const reader  = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer    = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed.startsWith('data:')) continue
+          const raw = trimmed.slice(5).trim()
+          if (!raw) continue
+
+          let payload: Record<string, unknown>
+          try { payload = JSON.parse(raw) } catch { continue }
+
+          if (typeof payload.token === 'string') {
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === agentId && m.content.type === 'text'
+                  ? { ...m, content: { type: 'text' as const, text: m.content.text + payload.token } }
+                  : m
+              )
+            )
+          } else if (payload.done === true) {
+            const chips = (payload.actions as ActionChip[]) ?? []
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === agentId ? { ...m, isStreaming: false, actions: chips } : m
+              )
+            )
+            setIsBusy(false)
+          } else if (typeof payload.error === 'string') {
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === agentId
+                  ? { ...m, isStreaming: false, content: { type: 'text', text: payload.error as string } }
+                  : m
+              )
+            )
+            setIsBusy(false)
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[arena] Stream error:', err)
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === agentId
+            ? { ...m, isStreaming: false, content: { type: 'text', text: 'The Historian is momentarily absent from the record.' } }
+            : m
+        )
+      )
+      setIsBusy(false)
+    }
+
+    streamingIdRef.current = null
+  }, [input, isBusy, messages, replyRef])
+
+  const handleChipSelect = useCallback((_msg: ChatMessage, promptText: string) => {
+    setInput(promptText)
+  }, [])
 
   return (
     <ChatShell variant="arena" className="h-full flex flex-col">
       <MessageList
         messages={messages}
         agentId={AGENT.HISTORIAN}
-        isTyping={isTyping}
-        swipeable            // enable swipe-to-reply in arena
+        isTyping={false}
+        swipeable
         onReply={handleReply}
         onChipSelect={handleChipSelect}
       />
@@ -134,11 +181,11 @@ export function ArenaChatClient() {
         value={input}
         onChange={setInput}
         onSend={handleSend}
-        disabled={isTyping}
+        disabled={isBusy}
         placeholder="Message the Arena… type @historian to summon"
         replyRef={replyRef}
         onClearReply={handleClearReply}
       />
     </ChatShell>
   )
-}
+                     }
