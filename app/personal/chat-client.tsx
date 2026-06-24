@@ -1,40 +1,29 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { ChatShell } from '@/components/chat/ChatShell'
 import { MessageList } from '@/components/chat/MessageList'
 import { ChatInput } from '@/components/chat/ChatInput'
-import { PERSONAL_MESSAGES } from '@/components/chat/mock-data'
 import { AGENT } from '@/lib/types'
-import type { ChatMessage } from '@/lib/types'
-
-// Canned responses stand in for real memwal + agent API calls.
-// Batch 4: replace handleSend's setTimeout with POST /api/agent/personal
-// and stream the response into the message list.
-const CANNED: string[] = [
-  "I've noted that — your memory is updated. Anything else you'd like to record?",
-  "Interesting. Based on what you've shared before, this lines up with your usual read on tournament football. Want me to lock it in?",
-  "Got it. I'll fold this into your personal record. Your prediction history is building up nicely.",
-  "That's useful context. Ask me anything about your previous picks and I'll draw on everything you've shared with me.",
-]
+import type { ActionChip, ChatMessage } from '@/lib/types'
 
 interface PersonalChatClientProps {
-  // walletAddress is unused in mock mode but wired now so Batch 4 can
-  // pass it straight through to the agent API without a page refactor.
+  // walletAddress is read from the session cookie server-side in the route.
+  // Kept as a prop so the page signature stays stable for future UI use.
   walletAddress: string
 }
 
-export function PersonalChatClient({
-  walletAddress: _walletAddress,
-}: PersonalChatClientProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>(PERSONAL_MESSAGES)
+export function PersonalChatClient({ walletAddress: _walletAddress }: PersonalChatClientProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput]       = useState('')
-  const [isTyping, setIsTyping] = useState(false)
+  const [isBusy, setIsBusy]     = useState(false)
+  const streamingIdRef           = useRef<string | null>(null)
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const text = input.trim()
-    if (!text || isTyping) return
+    if (!text || isBusy) return
 
+    // ── 1. Build user message ─────────────────────────────────────────
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
       role: 'user',
@@ -42,42 +31,122 @@ export function PersonalChatClient({
       timestamp: new Date().toISOString(),
     }
 
-    setMessages((prev) => [...prev, userMsg])
+    // ── 2. Build history for API (last 10 text messages, text only) ───
+    // Gemini uses role:'model' for assistant — Groq conversion is handled
+    // inside the route (groq.ts maps 'model' → 'assistant').
+    const history = [...messages, userMsg]
+      .filter(m => m.content.type === 'text')
+      .slice(-10)
+      .map(m => ({
+        role: (m.role === 'agent' ? 'model' : 'user') as 'user' | 'model',
+        text: (m.content as { type: 'text'; text: string }).text,
+      }))
+
+    // ── 3. Add user + empty streaming agent message simultaneously ────
+    const agentId = `a-${Date.now()}`
+    const agentMsg: ChatMessage = {
+      id: agentId,
+      role: 'agent',
+      agentId: AGENT.PERSONAL,
+      content: { type: 'text', text: '' },
+      timestamp: new Date().toISOString(),
+      isStreaming: true,
+    }
+
+    streamingIdRef.current = agentId
+    setMessages(prev => [...prev, userMsg, agentMsg])
     setInput('')
-    setIsTyping(true)
+    setIsBusy(true)
 
-    // Slightly randomised delay makes the typing indicator feel natural.
-    const delay = 1300 + Math.random() * 700
-    setTimeout(() => {
-      const agentMsg: ChatMessage = {
-        id: `a-${Date.now()}`,
-        role: 'agent',
-        agentId: AGENT.PERSONAL,
-        content: {
-          type: 'text',
-          text: CANNED[Math.floor(Math.random() * CANNED.length)],
-        },
-        timestamp: new Date().toISOString(),
+    // ── 4. Open SSE stream ────────────────────────────────────────────
+    try {
+      const response = await fetch('/api/agent/personal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: history, lastUserMessage: text }),
+      })
+
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP ${response.status}`)
       }
-      setMessages((prev) => [...prev, agentMsg])
-      setIsTyping(false)
-    }, delay)
-  }, [input, isTyping])
 
-  // Chip tap populates the input so the user can review before sending.
-  const handleChipSelect = useCallback(
-    (_msg: ChatMessage, promptText: string) => {
-      setInput(promptText)
-    },
-    [],
-  )
+      const reader  = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer    = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed.startsWith('data:')) continue
+          const raw = trimmed.slice(5).trim()
+          if (!raw) continue
+
+          let payload: Record<string, unknown>
+          try { payload = JSON.parse(raw) } catch { continue }
+
+          if (typeof payload.token === 'string') {
+            // Append token to the streaming bubble
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === agentId && m.content.type === 'text'
+                  ? { ...m, content: { type: 'text' as const, text: m.content.text + payload.token } }
+                  : m
+              )
+            )
+          } else if (payload.done === true) {
+            // Stream complete — lock message, attach chips
+            const chips = (payload.actions as ActionChip[]) ?? []
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === agentId ? { ...m, isStreaming: false, actions: chips } : m
+              )
+            )
+            setIsBusy(false)
+          } else if (typeof payload.error === 'string') {
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === agentId
+                  ? { ...m, isStreaming: false, content: { type: 'text', text: payload.error as string } }
+                  : m
+              )
+            )
+            setIsBusy(false)
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[personal] Stream error:', err)
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === agentId
+            ? { ...m, isStreaming: false, content: { type: 'text', text: 'Connection lost. Please try again.' } }
+            : m
+        )
+      )
+      setIsBusy(false)
+    }
+
+    streamingIdRef.current = null
+  }, [input, isBusy, messages])
+
+  // Chip tap populates the input — user reviews before sending
+  const handleChipSelect = useCallback((_msg: ChatMessage, promptText: string) => {
+    setInput(promptText)
+  }, [])
 
   return (
     <ChatShell variant="personal" className="h-full flex flex-col">
       <MessageList
         messages={messages}
         agentId={AGENT.PERSONAL}
-        isTyping={isTyping}
+        isTyping={false}
         onChipSelect={handleChipSelect}
       />
       <ChatInput
@@ -85,8 +154,8 @@ export function PersonalChatClient({
         value={input}
         onChange={setInput}
         onSend={handleSend}
-        disabled={isTyping}
+        disabled={isBusy}
       />
     </ChatShell>
   )
-  }
+}
