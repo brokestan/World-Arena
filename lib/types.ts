@@ -134,4 +134,5 @@ export type ChatMessage = {
   actions?: ActionChip[]
   // Set when the message was sent as a reply to another message
   replyTo?: ReplyReference
+  isStreaming?: boolean
   }
