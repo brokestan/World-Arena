@@ -5,7 +5,7 @@ import { ArenaChatClient } from './chat-client'
 export default function WorldArenaPage() {
   return (
     <main
-      style={{ height: 'calc(100dvh - 56px - 80px)' }}
+      style={{ height: 'calc(100dvh - var(--header-h) - 80px)' }}
       className="overflow-hidden"
     >
       <ArenaChatClient />
