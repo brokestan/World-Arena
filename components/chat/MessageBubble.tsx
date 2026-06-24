@@ -196,8 +196,17 @@ export function MessageBubble({
               {message.replyTo && <ReplyQuote message={message} />}
 
               <p className="text-sm leading-relaxed text-white/90">
-                {message.content.text}
-              </p>
+            {message.content.text}
+            {message.isStreaming && (
+            <span
+            className="inline-block w-px h-[1.1em] ml-0.5 align-middle rounded-full"
+            style={{
+            backgroundColor: cfg.colorLight,
+            animation: 'cursor-blink 1s ease-in-out infinite',
+               }}
+            />
+          )}
+      </p>
             </div>
           )}
 
