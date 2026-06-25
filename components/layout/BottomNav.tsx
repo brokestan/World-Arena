@@ -32,11 +32,40 @@ const tabs: Tab[] = [
     activeColor: '#ffffff',
     glowBg: 'rgba(255, 255, 255, 0.07)',
   },
+'use client'
+
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { motion } from 'framer-motion'
+import { Home, MessageCircle, Globe, Trophy, BookOpen, ScrollText } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { AGENT_CONFIG } from '@/lib/types'
+
+type Tab = {
+  href: string
+  label: string
+  icon: React.ComponentType<{
+    size?: number
+    strokeWidth?: number
+    style?: React.CSSProperties
+    className?: string
+  }>
+  activeColor: string
+  glowBg: string
+}
+
+const tabs: Tab[] = [
+  {
+    href: '/',
+    label: 'Home',
+    icon: Home,
+    activeColor: '#ffffff',
+    glowBg: 'rgba(255, 255, 255, 0.07)',
+  },
   {
     href: '/personal',
     label: 'Personal',
     icon: MessageCircle,
-    // colorLight gives better contrast on dark bg than the raw violet
     activeColor: AGENT_CONFIG.personal_agent.colorLight,
     glowBg: AGENT_CONFIG.personal_agent.colorGlow,
   },
@@ -55,6 +84,13 @@ const tabs: Tab[] = [
     glowBg: 'rgba(255, 255, 255, 0.07)',
   },
   {
+    href: '/arena/ledger',
+    label: 'Ledger',
+    icon: ScrollText,
+    activeColor: AGENT_CONFIG.the_historian.colorLight,
+    glowBg: AGENT_CONFIG.the_historian.colorGlow,
+  },
+  {
     href: '/personal/log',
     label: 'Log',
     icon: BookOpen,
@@ -68,7 +104,14 @@ function isTabActive(href: string, pathname: string): boolean {
   if (href === '/') return pathname === '/'
   // /personal: exact only — /personal/log has its own tab
   if (href === '/personal') return pathname === '/personal'
-  // All others: exact OR any nested path (e.g. /arena/ledger → Arena active)
+  // /arena: exact OR nested paths, but NOT /arena/ledger (that has its own tab)
+  if (href === '/arena') {
+    return (
+      pathname === '/arena' ||
+      (pathname.startsWith('/arena/') && !pathname.startsWith('/arena/ledger'))
+    )
+  }
+  // All others: exact OR any nested path
   return pathname === href || pathname.startsWith(href + '/')
 }
 
@@ -96,22 +139,18 @@ export function BottomNav() {
             aria-current={active ? 'page' : undefined}
             className="relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2"
           >
-            {/* The glow pill shares a single layoutId across all tabs.
-                Framer Motion spring-animates it from whichever tab last
-                owned it to the newly active tab. */}
             {active && (
               <motion.span
                 layoutId="tab-glow"
-                className="absolute inset-x-1.5 inset-y-1 rounded-xl"
+                className="absolute inset-x-1 inset-y-1 rounded-xl"
                 style={{ backgroundColor: tab.glowBg }}
                 transition={{ type: 'spring', stiffness: 380, damping: 30 }}
               />
             )}
 
-            {/* Icon — strokeWidth shifts to 2 when active, 1.5 at rest */}
             <span className="relative z-10">
               <Icon
-                size={20}
+                size={18}
                 strokeWidth={active ? 2 : 1.5}
                 style={{
                   color: active
@@ -122,9 +161,8 @@ export function BottomNav() {
               />
             </span>
 
-            {/* Label */}
             <span
-              className="relative z-10 text-[10px] font-medium leading-none transition-colors duration-200"
+              className="relative z-10 text-[9px] font-medium leading-none transition-colors duration-200"
               style={{
                 color: active
                   ? tab.activeColor
@@ -138,4 +176,4 @@ export function BottomNav() {
       })}
     </nav>
   )
-    }
+  }
