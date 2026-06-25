@@ -32,7 +32,8 @@ async function fetchPrivateMemories(walletAddress: string): Promise<string[]> {
 
 export default async function PersonalLogPage() {
   const cookieStore = await cookies()
-  const session = await getSessionFromCookie(cookieStore).catch(() => null)
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
+  const session = verifySessionToken(token)
 
   if (!session?.walletAddress) {
     redirect('/')
