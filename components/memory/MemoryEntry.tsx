@@ -35,10 +35,7 @@ function formatRelative(dateStr: string): string {
   }
 }
 
-const STYLE: Record
-  Category,
-  { label: string; color: string; border: string; bg: string; dot: string }
-> = {
+const STYLE: Record<Category, { label: string; color: string; border: string; bg: string; dot: string }> = {
   prediction:      { label: 'Prediction',  color: 'text-violet-300', border: 'border-violet-500/20', bg: 'bg-violet-500/[0.07]',  dot: 'bg-violet-400'  },
   opinion:         { label: 'Opinion',     color: 'text-blue-300',   border: 'border-blue-500/20',   bg: 'bg-blue-500/[0.07]',    dot: 'bg-blue-400'    },
   favorite_team:   { label: 'Fav Team',    color: 'text-pink-300',   border: 'border-pink-500/20',   bg: 'bg-pink-500/[0.07]',    dot: 'bg-pink-400'    },
