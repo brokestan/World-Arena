@@ -101,10 +101,7 @@ async function fetchArenaLedger(): Promise<UserLedger[]> {
     .sort((a, b) => b.memoryCount - a.memoryCount)
 }
 
-const CATEGORY_STYLE: Record
-  MemoryEntry['category'],
-  { label: string; color: string; ring: string }
-> = {
+const CATEGORY_STYLE: Record<MemoryEntry['category'], { label: string; color: string; ring: string }> = {
   prediction:      { label: 'Prediction', color: 'text-violet-300', ring: 'border-violet-500/25 bg-violet-500/[0.08]' },
   opinion:         { label: 'Opinion',    color: 'text-blue-300',   ring: 'border-blue-500/25 bg-blue-500/[0.08]'     },
   favorite_team:   { label: 'Fav Team',   color: 'text-pink-300',   ring: 'border-pink-500/25 bg-pink-500/[0.08]'     },
