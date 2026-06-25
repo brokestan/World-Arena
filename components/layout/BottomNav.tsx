@@ -3,40 +3,6 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Home, MessageCircle, Globe, Trophy, BookOpen } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { AGENT_CONFIG } from '@/lib/types'
-
-// BottomNav only uses usePathname() + Framer Motion — no wallet hooks,
-// no window access at module-eval time — so no Loader wrapper is needed.
-// It's imported directly into app/layout.tsx outside WalletProviderLoader.
-
-type Tab = {
-  href: string
-  label: string
-  icon: React.ComponentType<{
-    size?: number
-    strokeWidth?: number
-    style?: React.CSSProperties
-    className?: string
-  }>
-  activeColor: string   // icon + label text color when active
-  glowBg: string        // background of the spring-animated glow pill
-}
-
-const tabs: Tab[] = [
-  {
-    href: '/',
-    label: 'Home',
-    icon: Home,
-    activeColor: '#ffffff',
-    glowBg: 'rgba(255, 255, 255, 0.07)',
-  },
-'use client'
-
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { motion } from 'framer-motion'
 import { Home, MessageCircle, Globe, Trophy, BookOpen, ScrollText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AGENT_CONFIG } from '@/lib/types'
