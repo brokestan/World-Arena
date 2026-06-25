@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { getSessionFromCookie } from '@/lib/auth/session'
+import { verifySessionToken, SESSION_COOKIE_NAME } from '@/lib/auth/session'
 import { memwal } from '@/lib/memwal/client'
 import { memoryNamespace, NAMESPACE } from '@/lib/memwal/namespace'
 import { MemoryEntry } from '@/components/memory/MemoryEntry'
