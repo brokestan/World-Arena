@@ -1,7 +1,7 @@
 export const runtime = 'edge'
 
 import { NextRequest } from 'next/server'
-import { getSessionFromCookie } from '@/lib/auth/session-edge'
+import { getSessionFromRequest } from '@/lib/auth/session-edge'
 import { createClient } from '@supabase/supabase-js'
 import {
   saveArenaMessage,
@@ -18,7 +18,7 @@ const HISTORIAN_NAME = 'The Historian'
 
 export async function POST(req: NextRequest) {
   // Verify session — uses session-edge.ts (Web Crypto API, Edge-compatible)
-  const session = await getSessionFromCookie(req).catch(() => null)
+  const session = await getSessionFromRequest(req).catch(() => null)
   if (!session?.walletAddress) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
