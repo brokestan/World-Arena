@@ -1,16 +1,14 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { getSessionFromCookie } from '@/lib/auth/session'
+import { verifySessionToken, SESSION_COOKIE_NAME } from '@/lib/auth/session'
 import { buildPortfolio } from '@/lib/predictions/portfolio'
 import { AccuracyStats } from '@/components/predictions/AccuracyStats'
 import { MatchPredictionCard } from '@/components/predictions/MatchPredictionCard'
 
-// NOTE: session.ts (Node.js runtime) is correct here — this is a Server Component,
-// NOT an Edge Route. Only Edge Runtime API routes use session-edge.ts.
-
 export default async function PredictionsPage() {
   const cookieStore = await cookies()
-  const session = await getSessionFromCookie(cookieStore).catch(() => null)
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
+  const session = verifySessionToken(token)
 
   if (!session?.walletAddress) {
     redirect('/')
