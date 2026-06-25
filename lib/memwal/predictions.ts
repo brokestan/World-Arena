@@ -74,7 +74,7 @@ export function formatSharedPrediction(
   ].join(' | ')
 }
 
-// ─── Parsed type (for Batch 6 portfolio page) ────────────────────────────────
+// ─── Parsed type (for portfolio page) ────────────────────────────────────────
 export type ParsedPrediction = {
   matchId: string
   winner: string
@@ -144,13 +144,25 @@ export function parsePredictionMemory(text: string): ParsedPrediction | null {
 }
 
 /**
- * Recall all predictions from a user's private namespace.
- * Filters and parses — used by Batch 6 predictions portfolio page.
+ * Recall all predictions from a user's namespace.
+ *
+ * DEVIATION from original single-arg signature:
+ * Added optional `scope` parameter (defaults to NAMESPACE.PRIVATE for
+ * backward compatibility with extraction.ts). The portfolio page passes
+ * NAMESPACE.SHARED per the namespace access policy in ARCHITECTURE.md:
+ * "The Predictions Portfolio page is restricted to the shared namespace only."
+ *
+ * Usage:
+ *   recallPredictions(wallet)                  → private (extraction, personal agent)
+ *   recallPredictions(wallet, NAMESPACE.SHARED) → shared  (portfolio page, Historian)
  */
-export async function recallPredictions(walletAddress: string): Promise<ParsedPrediction[]> {
+export async function recallPredictions(
+  walletAddress: string,
+  scope: typeof NAMESPACE[keyof typeof NAMESPACE] = NAMESPACE.PRIVATE,
+): Promise<ParsedPrediction[]> {
   const result = await memwal.recall({
     query: 'PREDICTION match winner score confidence',
-    namespace: memoryNamespace(walletAddress, NAMESPACE.PRIVATE),
+    namespace: memoryNamespace(walletAddress, scope),
     limit: 50,
   })
 
